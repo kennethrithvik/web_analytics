@@ -1,14 +1,12 @@
 setwd("~/development/mtech/web_analytics")
-library(readr)
-
-train_clicks <- read_csv("development/mtech/web_analytics/RecSys/data_cleaned/train.csv", 
-                         col_types = cols(X1 = col_skip()))
 
 library("arules");
+library("future.apply")
+plan(multiprocess, workers = 7)
 
 #build rules
 trainegs = read.transactions(file='./RecSys/data_cleaned/train.csv',format="single", sep=",", cols=c("sessionID","itemID"));
-rules <- apriori(trainegs, parameter = list(supp=0.001, conf=0.001, minlen=2))
+rules <- apriori(trainegs, parameter = list(supp=0.00211, conf=0.33324, minlen=2))
 summary(rules)
 inspect(rules)
 
@@ -21,19 +19,23 @@ testegs = read.csv(file="./RecSys/data_cleaned/test.csv");
 # extract unique items bought (or rated highly) for each test user
 baskets = as.data.frame(aggregate(itemID ~ sessionID, data = testegs, paste, collapse=","))
 baskets$itemID = apply(baskets,1,function(X) uniqueitems(X["itemID"]))
+baskets<-baskets[1:10000,]
 
 #execute rules against test data
 rulesDF = as(rules,"data.frame")
 rulesDF$lhs<-as(lhs(rules), "list")
 rulesDF$rhs<-as(rhs(rules), "list")
-bask_temp$preds= apply(bask_temp,1,function(X) makepreds(X["itemID"], rulesDF))
+rulesDF$lhs_length<-apply(rulesDF,1,function(x)length(x["lhs"][[1]]))
+
+#make predictions
+baskets$preds= future_apply(baskets,1,function(X) makepreds(X["itemID"], rulesDF))
 
 
 #count how many unique predictions made are correct, i.e. have previously been bought (or rated highly) by the user
-correctpreds = sum(apply(bask_temp,1,function(X) checkpreds(X["preds"],X["itemID"],X["sessionID"])))
+correctpreds = sum(apply(baskets,1,function(X) checkpreds(X["preds"],X["itemID"],X["sessionID"])))
 
 # count total number of unique predictions made
-totalpreds = sum(apply(bask_temp,1,function(X) countpreds(X["preds"][[1]]))) 
+totalpreds = sum(apply(baskets,1,function(X) countpreds(X["preds"][[1]]))) 
 
 precision = correctpreds*100/totalpreds
 
@@ -66,19 +68,10 @@ uniqueitems <- function(itemstrg) {
 
 # execute ruleset using item as rule antecedent (handles single item antecedents only)
 makepreds <- function(item, rulesDF) {
-  rhs<-c()
-  for(i in 1:nrow(rulesDF)) {
-    row <- rulesDF[i,]
-    # do stuff with row
-    jl<-length(intersect(row$lhs[[1]],item[[1]]))
-    ll<-length(row$lhs[[1]])
-    rl<-length(item[[1]])
-    if(jl==ll){
-      rhs<-c(rhs,row$rhs)
-    }
-  }
-  rhs<-unique(rhs)
-  unlist(rhs)
+  temp<-apply(rulesDF,1,function(x)length(intersect(x["lhs"][[1]],item[[1]])))
+  rhs<-rulesDF[temp==rulesDF$lhs_length,]$rhs
+  rhs<-unlist(rhs)
+  unique(rhs)
 }
 
 # count how many predictions are in the basket of items already seen by that user 
