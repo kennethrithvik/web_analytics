@@ -2,37 +2,78 @@ setwd("~/development/mtech/web_analytics")
 
 library("arules");
 library("future.apply")
-plan(multiprocess, workers = 7)
+library("dplyr")
+library("readr")
+plan(multiprocess, workers = 5)
+
+##load training data and modify
+train_clicks <- read_csv("RecSys/data_cleaned/train.csv", 
+                    col_types = cols(X1 = col_skip(), cat = col_character(), 
+                    itemID = col_character(), sessionID = col_character(), 
+                    status = col_logical(), ts = col_datetime(format = "%Y-%m-%dT%H:%M:%OS%Z")))
+train_clicks$day<-weekdays(train_clicks$ts)
+train_clicks$hour<- format(train_clicks$ts,"%H")
+train_clicks$cat<-paste0("cat=",train_clicks$cat)
+train_clicks$itemID<-paste0("itemID=",train_clicks$itemID)
+train_clicks$status<-paste0("BUY=",train_clicks$status)
+train_clicks$day<-paste0("day=",train_clicks$day)
+train_clicks$hour<-paste0("hour=",train_clicks$hour)
+train_clicks$ts<-NULL
+#train_clicks$status<-NULL
+train_clicks$cat<-NULL
+readr::write_csv(train_clicks,"./RecSys/data_cleaned/train1.csv")
 
 #build rules
-trainegs = read.transactions(file='./RecSys/data_cleaned/train.csv',format="single", sep=",", cols=c("sessionID","itemID"));
-rules <- apriori(trainegs, parameter = list(supp=0.00211, conf=0.33324, minlen=2))
+trainegs = read.transactions(file='./RecSys/data_cleaned/train1.csv',format="basket", sep=",", cols=1)
+rhsTerms <- grep("^BUY=TRUE", itemLabels(trainegs), value = TRUE)
+lhsTerms <- grep("^itemID=|day=|hour=", itemLabels(trainegs), value = TRUE)
+rules <- apriori(trainegs, parameter = list(supp=0.0005, conf=0.15, minlen=2)
+                 ,appearance = list(rhs = rhsTerms,lhs=lhsTerms,default="none")
+                 )
 summary(rules)
 inspect(rules)
-
-# a useful plot of training data
-itemFrequencyPlot(trainegs,topN=20,type="absolute")
-
-#read the test data
-testegs = read.csv(file="./RecSys/data_cleaned/test.csv");
-
-# extract unique items bought (or rated highly) for each test user
-baskets = as.data.frame(aggregate(itemID ~ sessionID, data = testegs, paste, collapse=","))
-baskets$itemID = apply(baskets,1,function(X) uniqueitems(X["itemID"]))
-baskets<-baskets[1:10000,]
 
 #execute rules against test data
 rulesDF = as(rules,"data.frame")
 rulesDF$lhs<-as(lhs(rules), "list")
 rulesDF$rhs<-as(rhs(rules), "list")
 rulesDF$lhs_length<-apply(rulesDF,1,function(x)length(x["lhs"][[1]]))
+#readr::write_csv(rulesDF,"./RecSys/data_cleaned/sample_rules.csv")
+
+# a useful plot of training data
+itemFrequencyPlot(trainegs,topN=20,type="absolute")
+
+#read the test data
+testegs <- read_csv("RecSys/data_cleaned/test.csv", 
+                    col_types = cols(X1 = col_skip(), cat = col_character(), 
+                    itemID = col_character(), sessionID = col_character(), 
+                    status = col_logical(), ts = col_datetime(format = "%Y-%m-%dT%H:%M:%OS%Z")))
+testegs$day<-weekdays(testegs$ts)
+testegs$hour<- format(testegs$ts,"%H")
+testegs$cat<-paste0("cat=",testegs$cat)
+testegs$itemID<-paste0("itemID=",testegs$itemID)
+testegs$status<-paste0("BUY=",testegs$status)
+testegs$day<-paste0("day=",testegs$day)
+testegs$hour<-paste0("hour=",testegs$hour)
+testegs$ts<-NULL
+#testegs$status<-NULL
+testegs$cat<-NULL
+
+# extract unique items bought (or rated highly) for each test user
+baskets = as.data.frame(aggregate(. ~ sessionID, data = testegs, paste, collapse=","))
+baskets$itemID = apply(baskets,1,function(X) uniqueitems(X["itemID"]))
+baskets$status = apply(baskets,1,function(X) uniqueitems(X["status"]))
+baskets$day = apply(baskets,1,function(X) uniqueitems(X["day"]))
+baskets$hour = apply(baskets,1,function(X) uniqueitems(X["hour"]))
+baskets$item_cat = apply(baskets,1,function(X) c(unlist(X["itemID"]),unlist(X["day"]),unlist(X["day"])))
+baskets<-baskets[1:10000,]
 
 #make predictions
-baskets$preds= future_apply(baskets,1,function(X) makepreds(X["itemID"], rulesDF))
+baskets$preds= future_apply(baskets,1,function(X) makepreds(X["item_cat"], rulesDF))
 
 
 #count how many unique predictions made are correct, i.e. have previously been bought (or rated highly) by the user
-correctpreds = sum(apply(baskets,1,function(X) checkpreds(X["preds"],X["itemID"],X["sessionID"])))
+correctpreds = sum(apply(baskets,1,function(X) checkpreds(X["preds"],X["status"],X["sessionID"])))
 
 # count total number of unique predictions made
 totalpreds = sum(apply(baskets,1,function(X) countpreds(X["preds"][[1]]))) 
@@ -47,7 +88,7 @@ cat("precision=", precision, "corr=",correctpreds,"total=",totalpreds)
 # the supporting functions
 #######################################################################
 
-#remove duplicate items from a basket (itemstrg)
+#remove dupliitemIDe items from a basket (itemstrg)
 uniqueitems <- function(itemstrg) {
   l<-NULL
   if(itemstrg==""){
@@ -72,6 +113,7 @@ makepreds <- function(item, rulesDF) {
   rhs<-rulesDF[temp==rulesDF$lhs_length,]$rhs
   rhs<-unlist(rhs)
   unique(rhs)
+  #as.list(unique(rhs))
 }
 
 # count how many predictions are in the basket of items already seen by that user 
@@ -99,8 +141,8 @@ countpreds <- function(predlist) {
 
 library(arulesViz)
 plot(rules)
-plot(rules, method="graph")
-plot(rules, method="graph",nodeCol=grey.colors(10),edgeCol=grey(.7),alpha=1)
+plot(rules, method="graph",max=20)
+plot(rules, method="graph",nodeCol=grey.colors(10),edgeCol=grey(.7),alpha=1,max=20)
 plot(rules, method="matrix")
 plot(rules, method="paracoord", control=list(reorder=TRUE))
 
