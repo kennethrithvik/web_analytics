@@ -38,7 +38,7 @@ rulesDF = as(rules,"data.frame")
 rulesDF$lhs<-as(lhs(rules), "list")
 rulesDF$rhs<-as(rhs(rules), "list")
 rulesDF$lhs_length<-apply(rulesDF,1,function(x)length(x["lhs"][[1]]))
-#readr::write_csv(rulesDF,"./RecSys/data_cleaned/sample_rules.csv")
+#readr::write_csv(rulesDF,"./RecSys/data_cleaned/sample_rules_day_hour.csv")
 
 # a useful plot of training data
 itemFrequencyPlot(trainegs,topN=20,type="absolute")
