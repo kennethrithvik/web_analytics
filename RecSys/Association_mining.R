@@ -28,7 +28,7 @@ readr::write_csv(train_clicks,"./RecSys/data_cleaned/train1.csv")
 trainegs = read.transactions(file='./RecSys/data_cleaned/train1.csv',format="basket", sep=",", cols=1)
 rhsTerms <- grep("^BUY=TRUE", itemLabels(trainegs), value = TRUE)
 lhsTerms <- grep("^itemID=|day=|hour=", itemLabels(trainegs), value = TRUE)
-rules <- apriori(trainegs, parameter = list(supp=0.0005, conf=0.15, minlen=2)
+rules <- apriori(trainegs, parameter = list(supp=0.00005, conf=0.15, minlen=2)
                  ,appearance = list(rhs = rhsTerms,lhs=lhsTerms,default="none")
                  )
 summary(rules)
@@ -39,7 +39,7 @@ rulesDF = as(rules,"data.frame")
 rulesDF$lhs<-as(lhs(rules), "list")
 rulesDF$rhs<-as(rhs(rules), "list")
 rulesDF$lhs_length<-apply(rulesDF,1,function(x)length(x["lhs"][[1]]))
-#readr::write_csv(rulesDF,"./RecSys/data_cleaned/seq_rules.csv")
+#readr::write_csv(rulesDF,"./RecSys/data_cleaned/chokka.csv")
 
 # a useful plot of training data
 itemFrequencyPlot(trainegs,topN=20,type="absolute")
@@ -66,11 +66,13 @@ baskets$itemID = apply(baskets,1,function(X) uniqueitems(X["itemID"]))
 baskets$status = apply(baskets,1,function(X) uniqueitems(X["status"]))
 baskets$day = apply(baskets,1,function(X) uniqueitems(X["day"]))
 baskets$hour = apply(baskets,1,function(X) uniqueitems(X["hour"]))
-baskets$item_cat = apply(baskets,1,function(X) c(unlist(X["itemID"]),unlist(X["day"]),unlist(X["hour"])))
+baskets$cat = apply(baskets,1,function(X) uniqueitems(X["cat"]))
+baskets$item_cat = apply(baskets,1,function(X) c(unlist(X["itemID"]),
+                        unlist(X["cat"]),unlist(X["day"]),unlist(X["hour"])))
 baskets<-baskets[1:10000,]
 
 #make predictions
-baskets$preds= future_apply(baskets,1,function(X) makepreds(X["item_cat"], rulesDF))
+baskets$preds= future_apply(baskets,1,function(X) makepreds(X["itemID"], rulesDF))
 
 
 #count how many unique predictions made are correct, i.e. have previously been bought (or rated highly) by the user
@@ -83,8 +85,11 @@ precision = correctpreds*100/totalpreds
 
 cat("precision=", precision, "corr=",correctpreds,"total=",totalpreds)
 
-predict<-ifelse(predict %in% c("BUY=FALSE"), FALSE, TRUE)
-actual<-ifelse(actual %in% c("BUY=FALSE"), FALSE, TRUE)
+baskets[baskets$pred=="NULL",]$preds<-"BUY=FALSE"
+predict<-unlist(baskets$preds)
+actual<-baskets$status
+predict<-ifelse(predict %in% c("BUY=TRUE"),TRUE,FALSE)
+actual<-ifelse(actual %in% c("BUY=TRUE"),TRUE,FALSE)
 accuracy(actual,predict)
 recall(actual,predict)
 precision(actual,predict)
