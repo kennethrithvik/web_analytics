@@ -1,0 +1,19 @@
+unique itemID's in train data - 20295
+no. of Sessions in test- 57,410
+
+
+sequence mining rules:(tested without sequence, olnly if correct recommendations are made)
+item recommendation-
+precision= 20.29203 correct= 50600 total= 249359
+
+
+Apriori association mining:
+item recommendation-
+parameter = list(supp=0.002230, conf=0.34446, minlen=2)
+precision= 41.01023 correct= 8054 total= 19639
+
+buy prediction:
+with feature engineering- (day, hour_of_day, item)
+accuracy-0.8328
+recall- 0.2759389
+precision- 0.1058608

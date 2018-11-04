@@ -4,7 +4,8 @@ library("arules");
 library("future.apply")
 library("dplyr")
 library("readr")
-plan(multiprocess, workers = 5)
+library("Metrics")
+plan(multiprocess, workers = 4)
 
 ##load training data and modify
 train_clicks <- read_csv("RecSys/data_cleaned/train.csv", 
@@ -38,7 +39,7 @@ rulesDF = as(rules,"data.frame")
 rulesDF$lhs<-as(lhs(rules), "list")
 rulesDF$rhs<-as(rhs(rules), "list")
 rulesDF$lhs_length<-apply(rulesDF,1,function(x)length(x["lhs"][[1]]))
-#readr::write_csv(rulesDF,"./RecSys/data_cleaned/sample_rules_day_hour.csv")
+#readr::write_csv(rulesDF,"./RecSys/data_cleaned/seq_rules.csv")
 
 # a useful plot of training data
 itemFrequencyPlot(trainegs,topN=20,type="absolute")
@@ -65,7 +66,7 @@ baskets$itemID = apply(baskets,1,function(X) uniqueitems(X["itemID"]))
 baskets$status = apply(baskets,1,function(X) uniqueitems(X["status"]))
 baskets$day = apply(baskets,1,function(X) uniqueitems(X["day"]))
 baskets$hour = apply(baskets,1,function(X) uniqueitems(X["hour"]))
-baskets$item_cat = apply(baskets,1,function(X) c(unlist(X["itemID"]),unlist(X["day"]),unlist(X["day"])))
+baskets$item_cat = apply(baskets,1,function(X) c(unlist(X["itemID"]),unlist(X["day"]),unlist(X["hour"])))
 baskets<-baskets[1:10000,]
 
 #make predictions
@@ -82,8 +83,12 @@ precision = correctpreds*100/totalpreds
 
 cat("precision=", precision, "corr=",correctpreds,"total=",totalpreds)
 
-
-
+predict<-ifelse(predict %in% c("BUY=FALSE"), FALSE, TRUE)
+actual<-ifelse(actual %in% c("BUY=FALSE"), FALSE, TRUE)
+accuracy(actual,predict)
+recall(actual,predict)
+precision(actual,predict)
+f1(actual,predict)
 #######################################################################
 # the supporting functions
 #######################################################################

@@ -3,8 +3,16 @@
 ##########################################
 
 library(arulesSequences)
+library("readr")
 
-data <- read_baskets(con = "C:\\Users\\issbas\\Documents\\EBAC\\EBAC-electives\\webanalytics\\workshops\\demodata&code\\msnbc-seqformat-sample.txt", info = c("sequenceID","eventID","SIZE"))
+
+##load training data and modify
+train_clicks <- read_csv("RecSys/data_cleaned/train.csv", 
+                         col_types = cols(X1 = col_skip(), cat = col_character(), 
+                                          itemID = col_character(), sessionID = col_character(), 
+                                          status = col_logical(), ts = col_datetime(format = "%Y-%m-%dT%H:%M:%OS%Z")))
+
+data <- read_baskets(con = "./"RecSys/data_cleaned/train.csv", info = c("sequenceID","eventID","SIZE"))
 
 as(head(data), "data.frame") # view first few rows of the data
 
