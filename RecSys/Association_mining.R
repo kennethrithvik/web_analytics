@@ -26,9 +26,9 @@ readr::write_csv(train_clicks,"./RecSys/data_cleaned/train1.csv")
 
 #build rules
 trainegs = read.transactions(file='./RecSys/data_cleaned/train1.csv',format="basket", sep=",", cols=1)
-rhsTerms <- grep("^BUY=TRUE", itemLabels(trainegs), value = TRUE)
+rhsTerms <- grep("^BUY=", itemLabels(trainegs), value = TRUE)
 lhsTerms <- grep("^itemID=|day=|hour=", itemLabels(trainegs), value = TRUE)
-rules <- apriori(trainegs, parameter = list(supp=0.00005, conf=0.15, minlen=2)
+rules <- apriori(trainegs, parameter = list(supp=0.0019236, conf=0.13027,  minlen=2)
                  ,appearance = list(rhs = rhsTerms,lhs=lhsTerms,default="none")
                  )
 summary(rules)
@@ -68,11 +68,11 @@ baskets$day = apply(baskets,1,function(X) uniqueitems(X["day"]))
 baskets$hour = apply(baskets,1,function(X) uniqueitems(X["hour"]))
 baskets$cat = apply(baskets,1,function(X) uniqueitems(X["cat"]))
 baskets$item_cat = apply(baskets,1,function(X) c(unlist(X["itemID"]),
-                        unlist(X["cat"]),unlist(X["day"]),unlist(X["hour"])))
+                        unlist(X["day"]),unlist(X["hour"])))
 baskets<-baskets[1:10000,]
 
 #make predictions
-baskets$preds= future_apply(baskets,1,function(X) makepreds(X["itemID"], rulesDF))
+baskets$preds= future_apply(baskets,1,function(X) makepreds(X["item_cat"], rulesDF))
 
 
 #count how many unique predictions made are correct, i.e. have previously been bought (or rated highly) by the user

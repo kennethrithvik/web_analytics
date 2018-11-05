@@ -17,11 +17,13 @@ with feature engineering- (day, hour_of_day, item) (18 rules)
 accuracy-0.8328
 recall- 0.2759389
 precision- 0.1058608
+(supp=0.0019236, conf=0.13027)
 
 with 317 rules + cat:
 accuracy-0.7576903
 recall- 0.4296626
 precision- 0.1002302
+(supp=0.001, conf=0.1)
 
 71 rules with only items used to predict buy or not
 accuracy-0.8018638
