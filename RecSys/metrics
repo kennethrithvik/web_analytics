@@ -7,7 +7,7 @@ item recommendation-
 precision= 20.29203 correct= 50600 total= 249359
 
 
-Apriori association mining:
+Apriori association mining:(44 rules)
 item recommendation-
 parameter = list(supp=0.002230, conf=0.34446, minlen=2)
 precision= 41.01023 correct= 8054 total= 19639
