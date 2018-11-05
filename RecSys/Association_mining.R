@@ -20,16 +20,16 @@ train_clicks$status<-paste0("BUY=",train_clicks$status)
 train_clicks$day<-paste0("day=",train_clicks$day)
 train_clicks$hour<-paste0("hour=",train_clicks$hour)
 train_clicks$ts<-NULL
-#train_clicks$status<-NULL
+train_clicks$status<-NULL
 train_clicks$cat<-NULL
 readr::write_csv(train_clicks,"./RecSys/data_cleaned/train1.csv")
 
 #build rules
-trainegs = read.transactions(file='./RecSys/data_cleaned/train1.csv',format="basket", sep=",", cols=1)
+trainegs = read.transactions(file='./RecSys/data_cleaned/train1.csv',format="single", sep=",", cols=c(1,2))
 rhsTerms <- grep("^BUY=", itemLabels(trainegs), value = TRUE)
 lhsTerms <- grep("^itemID=|day=|hour=", itemLabels(trainegs), value = TRUE)
-rules <- apriori(trainegs, parameter = list(supp=0.0019236, conf=0.13027,  minlen=2)
-                 ,appearance = list(rhs = rhsTerms,lhs=lhsTerms,default="none")
+rules <- apriori(trainegs, parameter = list(supp=0.002230, conf=0.34446, minlen=2)
+                 #,appearance = list(rhs = rhsTerms,lhs=lhsTerms,default="none")
                  )
 summary(rules)
 inspect(rules)
@@ -57,7 +57,7 @@ testegs$status<-paste0("BUY=",testegs$status)
 testegs$day<-paste0("day=",testegs$day)
 testegs$hour<-paste0("hour=",testegs$hour)
 testegs$ts<-NULL
-#testegs$status<-NULL
+testegs$status<-NULL
 testegs$cat<-NULL
 
 # extract unique items bought (or rated highly) for each test user
@@ -72,11 +72,11 @@ baskets$item_cat = apply(baskets,1,function(X) c(unlist(X["itemID"]),
 baskets<-baskets[1:10000,]
 
 #make predictions
-baskets$preds= future_apply(baskets,1,function(X) makepreds(X["item_cat"], rulesDF))
+baskets$preds= future_apply(baskets,1,function(X) makepreds(X["itemID"], rulesDF))
 
 
 #count how many unique predictions made are correct, i.e. have previously been bought (or rated highly) by the user
-correctpreds = sum(apply(baskets,1,function(X) checkpreds(X["preds"],X["status"],X["sessionID"])))
+correctpreds = sum(apply(baskets,1,function(X) checkpreds(X["preds"],X["itemID"],X["sessionID"])))
 
 # count total number of unique predictions made
 totalpreds = sum(apply(baskets,1,function(X) countpreds(X["preds"][[1]]))) 
@@ -151,7 +151,7 @@ countpreds <- function(predlist) {
 
 library(arulesViz)
 plot(rules)
-plot(rules, method="graph",max=20)
+plot(rules, method="graph",max=5)
 plot(rules, method="graph",nodeCol=grey.colors(10),edgeCol=grey(.7),alpha=1,max=20)
 plot(rules, method="matrix")
 plot(rules, method="paracoord", control=list(reorder=TRUE))
